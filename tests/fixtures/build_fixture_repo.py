@@ -1,8 +1,9 @@
+import os
+import stat
 import subprocess
 import shutil
 import tempfile
 from pathlib import Path
-
 # Where the throwaway repo gets built. tempfile.gettempdir() resolves
 # to /tmp on Mac/Linux, and to something like C:\Users\you\AppData\Local\Temp on Windows.
 FIXTURE_DIR = Path(tempfile.gettempdir()) / "kbfa_fixture_repo"
@@ -25,11 +26,16 @@ def run_git(args, author=None):
         print(result.stderr)
         raise RuntimeError(f"git command failed: {' '.join(cmd)}")
 
+def _remove_readonly(func, path, exc_info):
+    """Clear the read-only bit and retry the delete (Windows git objects are read-only)."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 
 def reset_fixture_dir():
     """Wipe and recreate the fixture folder so this script is safe to re-run."""
     if FIXTURE_DIR.exists():
-        shutil.rmtree(FIXTURE_DIR)
+        shutil.rmtree(FIXTURE_DIR, onerror=_remove_readonly)
     FIXTURE_DIR.mkdir(parents=True)
 
 
